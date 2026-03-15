@@ -2,10 +2,8 @@ services:
   db:
     image: mysql:lts-oracle
     restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    env_file:
+      - "./envs/taskForceDb.env"
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
