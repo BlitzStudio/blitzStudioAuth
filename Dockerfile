@@ -3,8 +3,8 @@ FROM golang:trixie AS build
 
 # Install SQLite development libraries for Cgo in the build stage
 # 'sqlite-dev' is the package name for Alpine
-RUN apk add build-base
-RUN apk add --no-cache sqlite-dev
+RUN apt install build-base
+RUN apt install --no-cache sqlite-dev
 # setting the workdir
 WORKDIR /go/src/ettiHelper
 
