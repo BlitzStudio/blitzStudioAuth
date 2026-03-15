@@ -3,12 +3,12 @@ services:
     image: mysql:lts-oracle
     restart: always
     env_file:
-      - "./envs/taskForceDb.env"
+      - "../envs/taskForceDb.env"
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
-      - ./volumes/blitzStudioAuth/db:/var/lib/mysql
-      - ./mysql-init.sql:/docker-entrypoint-initdb.d:ro
+      - ../volumes/blitzStudioAuth/db:/var/lib/mysql
+      - ../mysql-init.sql:/docker-entrypoint-initdb.d:ro
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     networks:
@@ -19,8 +19,8 @@ services:
       context: .
       target: release
     volumes:
-      - "./envs/blitzStudioAuth.env:/app/.env"
-      - "./logs/blitzStudioAuth/logs.txt:/app/logrus.txt"
+      - "../envs/blitzStudioAuth.env:/app/.env"
+      - "../logs/blitzStudioAuth/logs.txt:/app/logrus.txt"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.blitzStudioAuth.rule=Host(`auth.etti.ro`)"
