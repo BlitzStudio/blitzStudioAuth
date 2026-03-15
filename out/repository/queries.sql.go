@@ -28,30 +28,28 @@ func (q *Queries) CountUserByEmail(ctx context.Context, email string) (int64, er
 
 const createUser = `-- name: CreateUser :execresult
 INSERT INTO
-    ` + "`" + `users` + "`" + ` (` + "`" + `email` + "`" + `, ` + "`" + `name` + "`" + `, ` + "`" + `password` + "`" + `, ` + "`" + `refresh_token` + "`" + `)
+    ` + "`" + `users` + "`" + ` (` + "`" + `email` + "`" + `, ` + "`" + `name` + "`" + `, ` + "`" + `password` + "`" + `)
 VALUES
-    (?, ?, ?, ?)
+    (
+        ?,
+        ?,
+        ?
+    )
 `
 
 type CreateUserParams struct {
-	Email        string
-	Name         string
-	Password     string
-	RefreshToken sql.NullString
+	Email    string
+	Name     string
+	Password string
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createUser,
-		arg.Email,
-		arg.Name,
-		arg.Password,
-		arg.RefreshToken,
-	)
+	return q.db.ExecContext(ctx, createUser, arg.Email, arg.Name, arg.Password)
 }
 
 const findAllUsers = `-- name: FindAllUsers :many
 SELECT
-    id, email, name, password, refresh_token
+    id, email, name, password
 FROM
     ` + "`" + `users` + "`" + `
 `
@@ -70,7 +68,6 @@ func (q *Queries) FindAllUsers(ctx context.Context) ([]User, error) {
 			&i.Email,
 			&i.Name,
 			&i.Password,
-			&i.RefreshToken,
 		); err != nil {
 			return nil, err
 		}
@@ -85,9 +82,55 @@ func (q *Queries) FindAllUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const findRefreshTokenByUserId = `-- name: FindRefreshTokenByUserId :one
+SELECT
+    id, userid, tokenfamily, expiresat, isrevoked, updated_at
+FROM
+    ` + "`" + `jwts` + "`" + `
+WHERE
+    ` + "`" + `userId` + "`" + ` = ?
+`
+
+func (q *Queries) FindRefreshTokenByUserId(ctx context.Context, userid sql.NullInt32) (Jwt, error) {
+	row := q.db.QueryRowContext(ctx, findRefreshTokenByUserId, userid)
+	var i Jwt
+	err := row.Scan(
+		&i.ID,
+		&i.Userid,
+		&i.Tokenfamily,
+		&i.Expiresat,
+		&i.Isrevoked,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const findTokenById = `-- name: FindTokenById :one
+SELECT
+    id, userid, tokenfamily, expiresat, isrevoked, updated_at
+FROM
+    ` + "`" + `jwts` + "`" + `
+WHERE
+    ` + "`" + `id` + "`" + ` = ?
+`
+
+func (q *Queries) FindTokenById(ctx context.Context, id string) (Jwt, error) {
+	row := q.db.QueryRowContext(ctx, findTokenById, id)
+	var i Jwt
+	err := row.Scan(
+		&i.ID,
+		&i.Userid,
+		&i.Tokenfamily,
+		&i.Expiresat,
+		&i.Isrevoked,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const findUserByEmail = `-- name: FindUserByEmail :one
 SELECT
-    id, email, name, password, refresh_token
+    id, email, name, password
 FROM
     ` + "`" + `users` + "`" + `
 WHERE
@@ -102,21 +145,20 @@ func (q *Queries) FindUserByEmail(ctx context.Context, email string) (User, erro
 		&i.Email,
 		&i.Name,
 		&i.Password,
-		&i.RefreshToken,
 	)
 	return i, err
 }
 
 const findUserById = `-- name: FindUserById :one
 SELECT
-    id, email, name, password, refresh_token
+    id, email, name, password
 FROM
     ` + "`" + `users` + "`" + `
 WHERE
     ` + "`" + `id` + "`" + ` = ?
 `
 
-func (q *Queries) FindUserById(ctx context.Context, id uint8) (User, error) {
+func (q *Queries) FindUserById(ctx context.Context, id uint32) (User, error) {
 	row := q.db.QueryRowContext(ctx, findUserById, id)
 	var i User
 	err := row.Scan(
@@ -124,7 +166,36 @@ func (q *Queries) FindUserById(ctx context.Context, id uint8) (User, error) {
 		&i.Email,
 		&i.Name,
 		&i.Password,
-		&i.RefreshToken,
+	)
+	return i, err
+}
+
+const findValidRefreshTokenByFamilyAndUserId = `-- name: FindValidRefreshTokenByFamilyAndUserId :one
+SELECT
+    id, userid, tokenfamily, expiresat, isrevoked, updated_at
+FROM
+    ` + "`" + `jwts` + "`" + `
+WHERE
+    ` + "`" + `tokenFamily` + "`" + ` = ?
+    AND ` + "`" + `userId` + "`" + ` = ?
+    AND ` + "`" + `isRevoked` + "`" + ` = FALSE
+`
+
+type FindValidRefreshTokenByFamilyAndUserIdParams struct {
+	TokenFamily string
+	UserId      sql.NullInt32
+}
+
+func (q *Queries) FindValidRefreshTokenByFamilyAndUserId(ctx context.Context, arg FindValidRefreshTokenByFamilyAndUserIdParams) (Jwt, error) {
+	row := q.db.QueryRowContext(ctx, findValidRefreshTokenByFamilyAndUserId, arg.TokenFamily, arg.UserId)
+	var i Jwt
+	err := row.Scan(
+		&i.ID,
+		&i.Userid,
+		&i.Tokenfamily,
+		&i.Expiresat,
+		&i.Isrevoked,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -139,4 +210,66 @@ func (q *Queries) GetLastInsertedId(ctx context.Context) (interface{}, error) {
 	var last_inserted_id interface{}
 	err := row.Scan(&last_inserted_id)
 	return last_inserted_id, err
+}
+
+const revokeRefreshTokenById = `-- name: RevokeRefreshTokenById :exec
+UPDATE ` + "`" + `jwts` + "`" + `
+SET
+    ` + "`" + `isRevoked` + "`" + ` = TRUE
+WHERE
+    ` + "`" + `id` + "`" + ` = ?
+`
+
+func (q *Queries) RevokeRefreshTokenById(ctx context.Context, tokenid string) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshTokenById, tokenid)
+	return err
+}
+
+const revokeTokenFamily = `-- name: RevokeTokenFamily :exec
+UPDATE ` + "`" + `jwts` + "`" + `
+SET
+    ` + "`" + `isRevoked` + "`" + ` = TRUE
+WHERE
+    ` + "`" + `tokenFamily` + "`" + ` = ?
+`
+
+func (q *Queries) RevokeTokenFamily(ctx context.Context, tokenfamily string) error {
+	_, err := q.db.ExecContext(ctx, revokeTokenFamily, tokenfamily)
+	return err
+}
+
+const saveRefreshToken = `-- name: SaveRefreshToken :exec
+INSERT INTO
+    ` + "`" + `jwts` + "`" + ` (
+        ` + "`" + `id` + "`" + `,
+        ` + "`" + `userId` + "`" + `,
+        ` + "`" + `tokenFamily` + "`" + `,
+        -- ` + "`" + `tokenHash` + "`" + `,
+        ` + "`" + `expiresAt` + "`" + `
+    )
+VALUES
+    (
+        ?,
+        ?,
+        ?,
+        -- sqlc.arg ("tokenHash"),
+        ?
+    )
+`
+
+type SaveRefreshTokenParams struct {
+	TokenId     string
+	UserId      sql.NullInt32
+	TokenFamily string
+	ExpiresAt   sql.NullTime
+}
+
+func (q *Queries) SaveRefreshToken(ctx context.Context, arg SaveRefreshTokenParams) error {
+	_, err := q.db.ExecContext(ctx, saveRefreshToken,
+		arg.TokenId,
+		arg.UserId,
+		arg.TokenFamily,
+		arg.ExpiresAt,
+	)
+	return err
 }

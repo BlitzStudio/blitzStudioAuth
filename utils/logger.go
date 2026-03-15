@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"io"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -16,7 +17,8 @@ func GetLogger() *logrus.Logger {
 	} else {
 		logger.Info("Failed to log to file, using default stderr")
 	}
-	logger.SetOutput(file)
+	multipleWriter := io.MultiWriter(file, os.Stdout)
+	logger.SetOutput(multipleWriter)
 	logger.SetLevel(logrus.DebugLevel)
 	// defer file.Close()
 	return logger

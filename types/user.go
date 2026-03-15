@@ -1,7 +1,8 @@
 package types
 
 type User struct {
-	Name     string
-	Email    string
-	Password string
+	// DeviceId string `json:"deviceId" `
+	Name     string `json:"name"`
+	Email    string `json:"email" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }

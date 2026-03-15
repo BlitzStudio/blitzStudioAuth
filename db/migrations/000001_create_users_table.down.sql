@@ -1,1 +1,6 @@
-DROP TABLE IF EXISTS `users`
+ALTER TABLE `jwts`
+DROP CONSTRAINT `fk_jwts_user`;
+
+DROP TABLE IF EXISTS `users`;
+
+DROP TABLE IF EXISTS `jwts`;

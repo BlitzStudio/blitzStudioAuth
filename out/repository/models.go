@@ -8,10 +8,18 @@ import (
 	"database/sql"
 )
 
+type Jwt struct {
+	ID          string
+	Userid      sql.NullInt32
+	Tokenfamily string
+	Expiresat   sql.NullTime
+	Isrevoked   sql.NullBool
+	UpdatedAt   sql.NullTime
+}
+
 type User struct {
-	ID           uint8
-	Email        string
-	Name         string
-	Password     string
-	RefreshToken sql.NullString
+	ID       uint32
+	Email    string
+	Name     string
+	Password string
 }

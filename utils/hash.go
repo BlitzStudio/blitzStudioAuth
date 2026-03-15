@@ -4,8 +4,8 @@ import (
 	"github.com/alexedwards/argon2id"
 )
 
-func GenerateHash(password string) (string, error) {
-	return argon2id.CreateHash("pa$$word", argon2id.DefaultParams)
+func GenerateHash(text string) (string, error) {
+	return argon2id.CreateHash(text, argon2id.DefaultParams)
 
 }
 
