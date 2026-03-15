@@ -26,6 +26,7 @@ RUN go build -o app .
 FROM alpine:latest AS release
 
 WORKDIR /app
+COPY --from=build /go/src/ettiHelper/app .
 
 RUN apk -U upgrade \
     && apk add --no-cache dumb-init ca-certificates \
