@@ -1,0 +1,41 @@
+services:
+  db:
+    image: mysql:lts-oracle
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - ./volumes/blitzStudioAuth/db:/var/lib/mysql
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - web
+
+  server:
+    build:
+      context: .
+      target: release
+    volumes:
+      - "./envs/blitzStudioAuth.env:/app/.env"
+      - "./logs/blitzStudioAuth/logs.txt:/app/logrus.txt"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.blitzStudioAuth.rule=Host(`auth.etti.ro`)"
+      - "traefik.http.routers.blitzStudioAuth.entrypoints=https"
+      - "traefik.http.routers.blitzStudioAuth.tls=true"
+      - "traefik.http.services.blitzStudioAuth.loadbalancer.server.port=3000"
+      - "traefik.http.routers.blitzStudioAuth.tls.certresolver=cloudflare"
+      - "traefik.http.routers.blitzStudioAuth.tls.domains[0].main=etti.ro"
+      - "traefik.http.routers.blitzStudioAuth.tls.domains[0].sans=auth.etti.ro"
+    networks:
+      - web
+    restart: always
+
+networks:
+  web:
+    external: true
