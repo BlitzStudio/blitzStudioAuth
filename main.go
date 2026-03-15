@@ -31,6 +31,9 @@ func main() {
 	}
 
 	db, err := sql.Open("mysql", "root:pass@/test?parseTime=true")
+	if os.Getenv("PROD") == "true" {
+		db, err = sql.Open("mysql", "root:pass@tcp(db:3306)/test?parseTime=true")
+	}
 	// ctx := context.Background()
 	if err != nil {
 		log.Fatal(err)
