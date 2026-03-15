@@ -1,7 +1,7 @@
 # Building the binary of the App
 FROM golang:trixie AS build
 
-WORKDIR /go/src/ettiHelper
+WORKDIR /go/src/blitzStudioAuth
 
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -9,13 +9,12 @@ RUN go mod download
 
 COPY . .
 ARG TARGETARCH
-RUN go build -o app .
+RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} go build -o blitzStudioAuth .
 
-
-FROM alpine:latest AS release
+FROM alpine:3.21 AS release
 
 WORKDIR /app
-COPY --from=build /go/src/ettiHelper/app /app/app
+COPY --from=build /go/src/blitzStudioAuth/blitzStudioAuth /app/app
 
 RUN apk -U upgrade \
     && apk add --no-cache dumb-init ca-certificates \
