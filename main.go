@@ -227,6 +227,10 @@ func main() {
 		return c.Status(401).SendString("invalid token")
 	})
 
+	app.Get("/.well-known/pubkey", func(c fiber.Ctx) error {
+		return c.SendString(os.Getenv("JWT_ACCESS_TOKEN_PUB_KEY"))
+	})
+
 	app.Get("*", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNotFound)
 	})
