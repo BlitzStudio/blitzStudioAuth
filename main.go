@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"os"
 	"time"
 
 	"github.com/BlitzStudio/blitzStudioAuth/out/repository"
@@ -55,68 +56,70 @@ func main() {
 		return c.Next()
 	})
 
-	app.Post("/auth/signup", func(c fiber.Ctx) error {
-		repo, ok := c.Locals("repo").(*repository.Queries)
-		if !ok {
-			log.Fatal("Couldnt access the db")
-		}
+	if os.Getenv("SIGNUPS_ALLOWED") == "true" {
+		app.Post("/auth/signup", func(c fiber.Ctx) error {
+			repo, ok := c.Locals("repo").(*repository.Queries)
+			if !ok {
+				log.Fatal("Couldnt access the db")
+			}
 
-		// preia valorile din post body
-		userData := new(types.User)
-		if err := c.Bind().JSON(userData); err != nil {
-			log.Error(err)
-			return c.Status(400).SendString("Incomplete body request")
-		}
+			// preia valorile din post body
+			userData := new(types.User)
+			if err := c.Bind().JSON(userData); err != nil {
+				log.Error(err)
+				return c.Status(400).SendString("Incomplete body request")
+			}
 
-		userPasswordHash, err := utils.GenerateHash(userData.Password)
-		if err != nil {
-			log.Error(err.Error())
-			return c.SendStatus(500)
-		}
+			userPasswordHash, err := utils.GenerateHash(userData.Password)
+			if err != nil {
+				log.Error(err.Error())
+				return c.SendStatus(500)
+			}
 
-		createdUser, err := repo.CreateUser(c.Context(), repository.CreateUserParams{
-			Email:    userData.Email,
-			Name:     userData.Name,
-			Password: userPasswordHash,
+			createdUser, err := repo.CreateUser(c.Context(), repository.CreateUserParams{
+				Email:    userData.Email,
+				Name:     userData.Name,
+				Password: userPasswordHash,
+			})
+
+			if err != nil {
+				log.Error(err)
+				return c.Status(500).SendString("This user already exists")
+			}
+
+			userId, err := createdUser.LastInsertId()
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+
+			timeNow := time.Now()
+			tokenFamily := uuid.New().String()
+			refreshTokenId := utils.GenerateUlid()
+			tokens := types.AuthTokens{
+				AccessToken:  utils.GenerateAccessToken(userId, utils.GenerateUlid(), timeNow),
+				RefreshToken: utils.GenerateRefreshToken(userId, refreshTokenId, tokenFamily, timeNow),
+			}
+			if err != nil {
+				log.Error(err)
+				return c.SendStatus(500)
+			}
+
+			err = repo.SaveRefreshToken(c.Context(), repository.SaveRefreshTokenParams{
+				TokenId:     refreshTokenId,
+				UserId:      sql.NullInt32{Int32: int32(userId), Valid: true},
+				TokenFamily: tokenFamily,
+				ExpiresAt:   sql.NullTime{Time: timeNow.Add(7 * 24 * time.Hour), Valid: true},
+			})
+			if err != nil {
+				log.Error(err)
+				return c.SendStatus(500)
+			}
+
+			log.Info("Created user: " + userData.Email + "with access token: " + tokens.AccessToken + " and refresh token: " + tokens.RefreshToken)
+			return c.JSON(tokens)
 		})
 
-		if err != nil {
-			log.Error(err)
-			return c.Status(500).SendString("This user already exists")
-		}
-
-		userId, err := createdUser.LastInsertId()
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-
-		timeNow := time.Now()
-		tokenFamily := uuid.New().String()
-		refreshTokenId := utils.GenerateUlid()
-		tokens := types.AuthTokens{
-			AccessToken:  utils.GenerateAccessToken(userId, utils.GenerateUlid(), timeNow),
-			RefreshToken: utils.GenerateRefreshToken(userId, refreshTokenId, tokenFamily, timeNow),
-		}
-		if err != nil {
-			log.Error(err)
-			return c.SendStatus(500)
-		}
-
-		err = repo.SaveRefreshToken(c.Context(), repository.SaveRefreshTokenParams{
-			TokenId:     refreshTokenId,
-			UserId:      sql.NullInt32{Int32: int32(userId), Valid: true},
-			TokenFamily: tokenFamily,
-			ExpiresAt:   sql.NullTime{Time: timeNow.Add(7 * 24 * time.Hour), Valid: true},
-		})
-		if err != nil {
-			log.Error(err)
-			return c.SendStatus(500)
-		}
-
-		log.Info("Created user: " + userData.Email + "with access token: " + tokens.AccessToken + " and refresh token: " + tokens.RefreshToken)
-		return c.JSON(tokens)
-	})
-
+	}
 	app.Post("/auth/signin", func(c fiber.Ctx) error {
 		repo, ok := c.Locals("repo").(*repository.Queries)
 		if !ok {
